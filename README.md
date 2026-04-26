@@ -1,7 +1,5 @@
 # win2000 Icon Extractor
 
-![win2000 Icon Extractor]
-
 <img width="1440" height="939" alt="image" src="https://github.com/user-attachments/assets/b31bd96e-7527-4727-ad99-b6b4bc22f98d" />
 
 A small Python GUI tool for extracting Win98-style icon strips from BMP resources and icon groups from Windows PE files.
