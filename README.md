@@ -33,14 +33,3 @@ python icon_extractor_gui.py
 
 Then drag and drop supported files or open them via the drop zone.
 
-
-
-Expected remote URL:
-
-```bash
-git@github.com:Win2000DevCommunity/win2000-Icon-Extractor.git
-```
-
-## License
-
-MIT License
