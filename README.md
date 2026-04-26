@@ -33,13 +33,7 @@ python icon_extractor_gui.py
 
 Then drag and drop supported files or open them via the drop zone.
 
-## GitHub
 
-Repository remote:
-
-```bash
-git remote -v
-```
 
 Expected remote URL:
 
