@@ -12,7 +12,7 @@ Requirements:
     pip install PyQt6 pillow numpy pefile
 """
 
-import sys, os, io, zipfile, tempfile, struct
+import sys, os, io, zipfile, struct
 from pathlib import Path
 from statistics import median
 
@@ -755,9 +755,9 @@ class IcoGroupPanel(QFrame):
             "ICO file (*.ico)")
         if not path:
             return
-        # Build multi-image .ico
+        # Build multi-image .ico entirely in memory
         n      = len(self.images)
-        offset = 6 + n * 16   # ICONDIR + n * ICONDIRENTRY
+        offset = 6 + n * 16
         header = struct.pack('<HHH', 0, 1, n)
         entries, blobs = b'', b''
         for label, pil_img in self.images:
@@ -1143,6 +1143,12 @@ class MainWindow(QMainWindow):
         save_path, _ = QFileDialog.getSaveFileName(
             self, "Save ZIP", "icons_extracted.zip", "ZIP archive (*.zip)")
         if not save_path: return
+
+        def pil_to_png_bytes(img):
+            buf = io.BytesIO()
+            img.save(buf, format='PNG')
+            return buf.getvalue()
+
         total = 0
         with zipfile.ZipFile(save_path, 'w', zipfile.ZIP_DEFLATED) as zf:
             # Bitmap strips
@@ -1151,24 +1157,34 @@ class MainWindow(QMainWindow):
                 folder = (f"{stem}/bitmap_{panel.resource_id}"
                           if panel.resource_id >= 0 else stem)
                 for i, icon in enumerate(panel.icons):
-                    with tempfile.NamedTemporaryFile(
-                            suffix='.png', delete=False) as tf:
-                        icon.save(tf.name)
-                        zf.write(tf.name, f"bitmaps/{folder}/{i+1:04d}.png")
-                        os.unlink(tf.name)
+                    zf.writestr(f"bitmaps/{folder}/{i+1:04d}.png",
+                                pil_to_png_bytes(icon))
                     total += 1
-            # ICO groups — save each size as PNG + one .ico per group
+            # ICO groups — PNG per size + one combined .ico per group
             for panel in self._ico_panels:
-                stem = Path(panel.source_path).stem
+                stem   = Path(panel.source_path).stem
                 folder = f"icons/{stem}/icon_{panel.group_id}"
                 for label, pil_img in panel.images:
-                    safe = label.replace('×','x').replace(' ','_')
-                    with tempfile.NamedTemporaryFile(
-                            suffix='.png', delete=False) as tf:
-                        pil_img.save(tf.name)
-                        zf.write(tf.name, f"{folder}/{safe}.png")
-                        os.unlink(tf.name)
+                    safe = label.replace('×','x').replace(' ','_').strip('_')
+                    zf.writestr(f"{folder}/{safe}.png",
+                                pil_to_png_bytes(pil_img))
                     total += 1
+                # Also save a proper multi-size .ico in the zip
+                n      = len(panel.images)
+                offset = 6 + n * 16
+                header = struct.pack('<HHH', 0, 1, n)
+                entries, blobs = b'', b''
+                for label, pil_img in panel.images:
+                    png = pil_to_png_bytes(pil_img)
+                    w   = pil_img.width  if pil_img.width  < 256 else 0
+                    h   = pil_img.height if pil_img.height < 256 else 0
+                    entries += struct.pack('<BBBBHHII',
+                                          w, h, 0, 0, 1, 32,
+                                          len(png), offset + len(blobs))
+                    blobs += png
+                zf.writestr(f"{folder}/icon_{panel.group_id}.ico",
+                            header + entries + blobs)
+
         QMessageBox.information(self, "Export complete",
             f"Saved {total} item(s) to:\n{save_path}")
 
